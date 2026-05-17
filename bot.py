@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -352,11 +353,13 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
     logging.error(msg="Ошибка:", exc_info=context.error)
-    if update and hasattr(update, "message"):
+    if update and hasattr(update, "message") and update.message:
         await update.message.reply_text("Произошла ошибка. Но я всё равно недоволен.")
+    elif update and hasattr(update, "callback_query") and update.callback_query:
+        await update.callback_query.answer("Произошла ошибка. Но я всё равно недоволен.")
 
 # ---------- СБОРКА ПРИЛОЖЕНИЯ ----------
-def main():
+async def main():
     logging.basicConfig(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         level=logging.INFO,
@@ -368,7 +371,7 @@ def main():
     conv_handler = ConversationHandler(
         entry_points=[
             MessageHandler(filters.Regex("^➕ Новая задача$"), new_task_start),
-            CommandHandler("new", new_task_start),  # альтернатива
+            CommandHandler("new", new_task_start),
         ],
         states={
             TITLE: [
@@ -411,7 +414,13 @@ def main():
 
     # Запуск
     print("Бот запущен. Нажмите Ctrl+C для остановки.")
-    application.run_polling()
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+    # Держим бота живым
+    while True:
+        await asyncio.sleep(1)
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())
